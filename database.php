@@ -11,7 +11,9 @@ class Database
 {
     const READ_ONLY     =   1;
     const READ_WRITE    =   2;
-
+    /**
+     * @var const String with pdo conector
+     */
     const DSN = '%s:dbname=%s;host=%s';
     /**
      * Indicate to PDO the type of
@@ -43,23 +45,34 @@ class Database
     /**
      * @var Array indicating class and method
      */
-     protected  $sWitness = NULL;
+    protected  $sWitness = NULL;
      /**
      * @var Int indicates active slave
      */
-     protected  $token = 0;
-
+    protected  $token = 0;
+    
+    /**
+     * Constructor of the class who set up
+     * type of database and witness callback
+     *
+     * @author Carles Iborra
+     * @param $type Type of database
+     */
     public function __construct($type='mysql')
     {
         $this->type = $type;
         $this->sWitness = array($this , 'seed');
     }
-    public function setType($type)
-    {
-        $this->type = $type;
-
-        return $this;
-    }
+    /**
+     * Method to setting up database master
+     *
+     * @author Carles Iborra
+     * @param $host string with database host
+     * @param $database string with database
+     * @param $user string with user of database
+     * @param $password string with pasword of database
+     * @return object of self class
+     */
     public function setMaster($host,$database,$user,$password)
     {
 		$data = new stdClass;
@@ -73,6 +86,16 @@ class Database
 
         return $this;
     }
+    /**
+     * Method for adding database slaves
+     *
+     * @author Carles Iborra
+     * @param $host string with database host
+     * @param $database string with database
+     * @param $user string with user of database
+     * @param $password string with pasword of database
+     * @return object of self class
+     */
     public function addSlave($host,$database,$user,$password)
     {
 		$data = new stdClass;
@@ -88,12 +111,27 @@ class Database
 
         return $this;
     }
+    /**
+     * Method to setting up witness callback that
+     * returns a seed under criteria (ex: load balance)
+     *
+     * @author Carles Iborra
+     * @param $witness array with class and method
+     * @return object of self class
+     */
     public function setWitness(Array $witness)
     {
         $this->sWitness = $witness;
 
         return $this;
     }
+    /**
+     * Method to connect to master and the selected
+     * slave which is selected under witness condition
+     *
+     * @author Carles Iborra
+     * @return object of self class
+     */
     public function connect()
     {
       if(empty($this->m) OR empty($this->s)) throw new RangeException('Need almost one master and one slave!'); 
@@ -121,6 +159,17 @@ class Database
 
         return $this;
     }
+    /**
+     * Magic method which executes SQL sentences and return
+     * the result. Switch database link under RO (read only) 
+     * or RW (read and write) conditions.
+     *
+     * @author Carles Iborra
+     * @param $sql String with SQL sentence without vars
+     * @param $array Array with all vars
+     * @param $force_mode String force mode to RO or RW
+     * @return array or boolean 
+     */
     public function prepare($sql,Array $array = array() ,$force_mode = NULL)
     {
         if(!$this->connected) throw new ErrorException('You need to connect to database!');
@@ -172,14 +221,35 @@ class Database
         #Send response.
         return $response;
     }
+    /**
+     * Transforms witness recieved seed into a rotative
+     * index that don't overflow array.
+     *
+     * @author Carles Iborra
+     * @param $seed integer that changes under criteria
+     * @return integer index of slaves array
+     */
     protected function witness($seed)
     {
         return (int)$seed%$this->sLength;
     }
+    /**
+     * Generate random seed to supply no witness
+     * declaration and try to emulate load balancing.
+     *
+     * @author Carles Iborra
+     * @return integer random big number
+     */
     protected function seed()
     {
         return mt_rand();
     }
+    /**
+     * Error controlling function
+     *
+     * @author Carles Iborra
+     * @return Array of errors
+     */
     public function error()
     {
         return $this->error;
