@@ -66,6 +66,20 @@ class DbTest extends PHPUnit_Framework_TestCase
         $this->assertInternalType('bool', $result);
         $this->assertTrue($result);
     }
+    public function testPrepareDebug()
+    {
+        $db = new Database();
+        $db
+        ->setMaster('localhost','test','root','root')
+        ->addSlave('localhost','test','root','root')
+        ->addSlave('localhost','test','root','root')
+        ->connect();
+
+        $result = $db->debug('SELECT * FROM test WHERE login = :name',array(':name' => 'test'));
+        
+        $this->assertInstanceOf('stdClass', $result);
+        $this->assertEquals($result->mode, 'ro');
+    }
 
 }
 

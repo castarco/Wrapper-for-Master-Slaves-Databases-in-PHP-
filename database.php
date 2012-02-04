@@ -158,7 +158,7 @@ class Database
         $this->connected = TRUE;
 
         return $this;
-    }
+    } 
     /**
      * Magic method which executes SQL sentences and return
      * the result. Switch database link under RO (read only) 
@@ -170,7 +170,7 @@ class Database
      * @param $force_mode String force mode to RO or RW
      * @return array or boolean 
      */
-    public function prepare($sql,Array $array = array() ,$force_mode = NULL)
+    public function prepare($sql,Array $array = array() ,$force_mode = NULL,$debug = FALSE)
     {
         if(!$this->connected) throw new ErrorException('You need to connect to database!');
         
@@ -203,6 +203,15 @@ class Database
                     break;
             }
         }
+        if($debug)
+        {
+            $debug = new stdClass;
+            $debug->mode = $force_mode;
+            $debug->link = $link;
+            $debug->sql = strtr(preg_replace('/(:\w+)/','"$1"',$sql),$array);
+
+            return $debug;
+        }
         #Execute sql
         try 
         {
@@ -220,6 +229,19 @@ class Database
 
         #Send response.
         return $response;
+    }
+    /**
+     * Alias for prepare in mode debug
+     *
+     * @author Carles Iborra
+     * @param $sql String with SQL sentence without vars
+     * @param $array Array with all vars
+     * @param $force_mode String force mode to RO or RW
+     * @return array or boolean 
+     */
+    public function debug($sql,Array $array = array() ,$force_mode = NULL,$debug = FALSE)
+    {
+        return $this->prepare($sql,$array,$force_mode,TRUE);
     }
     /**
      * Transforms witness recieved seed into a rotative
