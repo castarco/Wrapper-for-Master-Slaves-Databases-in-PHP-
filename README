@@ -1,0 +1,16 @@
+--------------------------------------------
+Wrapper for Master / Slaves Databases in PHP
+--------------------------------------------
+
+USE
+
+You can see diferent uses of this class in the testing file, near will add more tests with complex
+uses.
+
+PLEASE
+
+If you will use this class, try to get in touch with this three compromises:
+
+- Respect authors
+- Extend knowledge
+- Improve it
