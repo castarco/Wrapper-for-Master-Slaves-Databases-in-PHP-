@@ -52,7 +52,11 @@ class Database
      * @var Int indicates active slave
      */
     protected  $token = 0;
-    
+     /**
+     * @var Array saving executions
+     */
+    protected  $cache = array();
+
     /**
      * Constructor of the class who set up
      * type of database and witness callback
@@ -178,6 +182,8 @@ class Database
         
         #Setting local vars.
         $link = NULL;
+        $mounted = strtr(preg_replace('/(:\w+)/','"$1"',$sql),$array);
+        if(isset($this->cache[sha1($mounted)])) return $this->cache[sha1($mounted)];
 
         #Detect Mode
         preg_match_all('/(SELECT|INSERT|UPDATE|DELETE|CALL|SHOW|USE)/i', $sql, $matches);
@@ -205,12 +211,13 @@ class Database
                     break;
             }
         }
+
         if($debug)
         {
             $debug = new stdClass;
             $debug->mode = $force_mode;
             $debug->link = $link;
-            $debug->sql = strtr(preg_replace('/(:\w+)/','"$1"',$sql),$array);
+            $debug->sql = $mounted;
 
             return $debug;
         }
@@ -228,6 +235,8 @@ class Database
             $this->error = $e;
             $response = FALSE;
         }
+        
+        $this->cache[sha1($mounted)] = $response;
 
         #Send response.
         return $response;
