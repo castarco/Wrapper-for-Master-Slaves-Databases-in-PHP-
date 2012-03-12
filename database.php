@@ -48,11 +48,11 @@ class Database
      * @var Array indicating class and method
      */
     protected  $sWitness = NULL;
-     /**
+    /**
      * @var Int indicates active slave
      */
     protected  $token = 0;
-     /**
+    /**
      * @var Array saving executions
      */
     protected  $cache = array();
@@ -178,12 +178,23 @@ class Database
      */
     public function prepare($sql,Array $array = array() ,$force_mode = NULL,$debug = FALSE)
     {
-        if(!$this->connected) throw new ErrorException('You need to connect to database!');
+        if(!$this->connected) 
+        {
+            try
+            {
+                $this->connect();
+            }
+            catch (Exception $e)
+            {
+                throw new ErrorException('You need to connect to database!');
+            }
+        }
         
         #Setting local vars.
         $link = NULL;
         $mounted = strtr(preg_replace('/(:\w+)/','"$1"',$sql),$array);
-        if(isset($this->cache[sha1($mounted)])) return $this->cache[sha1($mounted)];
+        $sha1mounted = sha1($mounted);
+        if(isset($this->cache[$sha1mounted])) return $this->cache[$sha1mounted];
 
         #Detect Mode
         preg_match_all('/(SELECT|INSERT|UPDATE|DELETE|CALL|SHOW|USE)/i', $sql, $matches);
@@ -224,11 +235,10 @@ class Database
         #Execute sql
         try 
         {
-            
             $prepared = $link->db->prepare($sql, array(PDO::ATTR_CURSOR => PDO::CURSOR_FWDONLY));
-            $prepared->execute($array);
+            $exec_result = $prepared->execute($array);
             $prepared->setFetchMode(PDO::FETCH_ASSOC);
-            $response = ($force_mode === 'ro') ? $prepared->fetchAll() : TRUE;
+            $response = ($force_mode === 'ro') ? $prepared->fetchAll() : $exec_result;
         } 
         catch (PDOException $e) 
         {
@@ -236,10 +246,22 @@ class Database
             $response = FALSE;
         }
         
-        $this->cache[sha1($mounted)] = $response;
+        $this->cache[$sha1mounted] = $response;
 
         #Send response.
         return $response;
+    }
+    /**
+     * Returns the Primary Key of the last inserted row
+     *
+     * @author Andreu Correa Casablanca
+     * @return mixed ID of lart inserted row 
+     */
+    public function getLastInsertId()
+    {
+        // We "attack" to the Master Node (Because is RW)
+        $link = $link = $this->m;
+        return $link->db->lastInsertId();
     }
     /**
      * Alias for prepare in mode debug
