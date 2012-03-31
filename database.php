@@ -140,7 +140,7 @@ class Database
      */
     public function connect()
     {
-      if(empty($this->m) OR empty($this->s)) throw new RangeException('Need almost one master and one slave!'); 
+        if(empty($this->m) OR empty($this->s)) throw new RangeException('Need almost one master and one slave!'); 
         
         try 
         {
@@ -154,7 +154,7 @@ class Database
         $this->token = $i = $this->witness(call_user_func($this->sWitness));
         try 
         {
-                $this->s[$i]->db = new PDO(sprintf(self::DSN,$this->type,$this->s[$i]->database,$this->s[$i]->host),$this->s[$i]->user,$this->s[$i]->password);      
+            $this->s[$i]->db = new PDO(sprintf(self::DSN,$this->type,$this->s[$i]->database,$this->s[$i]->host),$this->s[$i]->user,$this->s[$i]->password);      
         } 
         catch (PDOException $e) 
         {
@@ -176,7 +176,7 @@ class Database
      * @param $force_mode String force mode to RO or RW
      * @return array or boolean 
      */
-    public function prepare($sql,Array $array = array() ,$force_mode = NULL,$debug = FALSE)
+    public function prepare($sql,Array $array = array() ,$force_mode = NULL,$debug = FALSE, $multiple_rows=FALSE)
     {
         if(!$this->connected) 
         {
@@ -192,9 +192,24 @@ class Database
         
         #Setting local vars.
         $link = NULL;
-        $mounted = strtr(preg_replace('/(:\w+)/','"$1"',$sql),$array);
-        $sha1mounted = sha1($mounted);
-        if(isset($this->cache[$sha1mounted])) return $this->cache[$sha1mounted];
+        
+        if ($multiple_rows)
+        {
+            $mounted = array ();
+            $i=0;
+            $c=count($array);
+            while($i<$c)
+            {
+                $mounted[] = strtr(preg_replace('/(:\w+)/','"$1"',$sql),$array[$i]);
+                ++$i;
+            }
+        }
+        else
+        {
+            $mounted     = strtr(preg_replace('/(:\w+)/','"$1"',$sql),$array);
+            $sha1mounted = sha1($mounted);
+            if(isset($this->cache[$sha1mounted])) return $this->cache[$sha1mounted];
+        }
 
         #Detect Mode
         preg_match_all('/(SELECT|INSERT|UPDATE|DELETE|CALL|SHOW|USE)/i', $sql, $matches);
@@ -229,14 +244,30 @@ class Database
             $debug->mode = $force_mode;
             $debug->link = $link;
             $debug->sql = $mounted;
-
+            
             return $debug;
         }
         #Execute sql
         try 
         {
             $prepared = $link->db->prepare($sql, array(PDO::ATTR_CURSOR => PDO::CURSOR_FWDONLY));
-            $exec_result = $prepared->execute($array);
+            
+            $exec_result = true;
+            if ($multiple_rows)
+            {
+                $i=0;
+                $c=count($array);
+                while($i<$c)
+                {
+                    $exec_result &= $prepared->execute($array[$i]);
+                    ++$i;
+                }
+            }
+            else
+            {
+                $exec_result &= $prepared->execute($array);
+            }
+            
             $prepared->setFetchMode(PDO::FETCH_ASSOC);
             $response = ($force_mode === 'ro') ? $prepared->fetchAll() : $exec_result;
         } 
@@ -246,7 +277,10 @@ class Database
             $response = FALSE;
         }
         
-        $this->cache[$sha1mounted] = $response;
+        if ($force_mode === 'ro')
+        {
+            $this->cache[$sha1mounted] = $response;
+        }
 
         #Send response.
         return $response;
@@ -272,9 +306,9 @@ class Database
      * @param $force_mode String force mode to RO or RW
      * @return array or boolean 
      */
-    public function debug($sql,Array $array = array() ,$force_mode = NULL,$debug = FALSE)
+    public function debug($sql,Array $array = array() ,$force_mode = NULL,$debug = FALSE, $multiple_rows=FALSE)
     {
-        return $this->prepare($sql,$array,$force_mode,TRUE);
+        return $this->prepare($sql,$array,$force_mode,TRUE,$multiple_rows);
     }
     /**
      * Transforms witness recieved seed into a rotative
