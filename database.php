@@ -138,13 +138,13 @@ class Database
      * @author Carles Iborra
      * @return object of self class
      */
-    public function connect()
+    public function connect($persistent = true)
     {
         if(empty($this->m) OR empty($this->s)) throw new RangeException('Need almost one master and one slave!'); 
         
         try 
         {
-            $this->m->db = new PDO(sprintf(self::DSN,$this->type,$this->m->database,$this->m->host),$this->m->user,$this->m->password);   
+            $this->m->db = new PDO(sprintf(self::DSN,$this->type,$this->m->database,$this->m->host),$this->m->user,$this->m->password, array(PDO::ATTR_PERSISTENT => $persistent));
         } 
         catch (PDOException $e)
         {
@@ -152,11 +152,11 @@ class Database
         }
 
         $this->token = $i = $this->witness(call_user_func($this->sWitness));
-        try 
+        try
         {
-            $this->s[$i]->db = new PDO(sprintf(self::DSN,$this->type,$this->s[$i]->database,$this->s[$i]->host),$this->s[$i]->user,$this->s[$i]->password);      
-        } 
-        catch (PDOException $e) 
+            $this->s[$i]->db = new PDO(sprintf(self::DSN,$this->type,$this->s[$i]->database,$this->s[$i]->host),$this->s[$i]->user,$this->s[$i]->password, array(PDO::ATTR_PERSISTENT => $persistent));
+        }
+        catch (PDOException $e)
         {
             throw new ErrorException('Connection to slave number '.($i+1).' failed: '.$e->getMessage());
         }
@@ -190,9 +190,6 @@ class Database
             }
         }
         
-        #Setting local vars.
-        $link = NULL;
-        
         if ($multiple_rows)
         {
             $mounted = array ();
@@ -211,19 +208,19 @@ class Database
             if(isset($this->cache[$sha1mounted])) return $this->cache[$sha1mounted];
         }
 
-        #Detect Mode
-        preg_match_all('/(SELECT|INSERT|UPDATE|DELETE|CALL|SHOW|USE)/i', $sql, $matches);
-
-        #Select server
+        // Select server
         if($force_mode !== NULL)
         {
-            if($force_mode === 'ro')
-                $link = $this->s[$this->token];
-            elseif ($force_mode === 'rw')
+        	if($force_mode === 'ro')
+        		$link = $this->s[$this->token];
+        	elseif ($force_mode === 'rw')
                 $link = $this->m;
         }
-        if($link === NULL)
+        else
         {
+            // Detect Mode
+            preg_match_all('/(SELECT|INSERT|UPDATE|DELETE|CALL|SHOW|USE)/i', $sql, $matches);
+            
             switch (strtoupper($matches[1][0]))
             {
                 case 'SELECT':
@@ -247,7 +244,7 @@ class Database
             
             return $debug;
         }
-        #Execute sql
+        // Execute sql
         try 
         {
             $prepared = $link->db->prepare($sql, array(PDO::ATTR_CURSOR => PDO::CURSOR_FWDONLY));
@@ -282,7 +279,7 @@ class Database
             $this->cache[$sha1mounted] = $response;
         }
 
-        #Send response.
+        // Send response.
         return $response;
     }
     /**
